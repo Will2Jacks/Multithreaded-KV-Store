@@ -1,0 +1,1 @@
+/usr/bin/c++  -O3 -march=native -Wall -Wextra CMakeFiles/kvserver.dir/src/main.cpp.o -o kvserver 
