@@ -1,4 +1,5 @@
 /home/bayern/kv-store/build/CMakeFiles/kvserver.dir
 /home/bayern/kv-store/build/CMakeFiles/benchmark_store.dir
+/home/bayern/kv-store/build/CMakeFiles/network_test.dir
 /home/bayern/kv-store/build/CMakeFiles/edit_cache.dir
 /home/bayern/kv-store/build/CMakeFiles/rebuild_cache.dir

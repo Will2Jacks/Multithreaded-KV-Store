@@ -142,6 +142,43 @@ benchmark_store/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/benchmark_store.dir/build.make CMakeFiles/benchmark_store.dir/build
 .PHONY : benchmark_store/fast
 
+#=============================================================================
+# Target rules for targets named network_test
+
+# Build rule for target.
+network_test: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 network_test
+.PHONY : network_test
+
+# fast build rule for target.
+network_test/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/network_test.dir/build.make CMakeFiles/network_test.dir/build
+.PHONY : network_test/fast
+
+benchmarks/network_test.o: benchmarks/network_test.cpp.o
+.PHONY : benchmarks/network_test.o
+
+# target to build an object file
+benchmarks/network_test.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/network_test.dir/build.make CMakeFiles/network_test.dir/benchmarks/network_test.cpp.o
+.PHONY : benchmarks/network_test.cpp.o
+
+benchmarks/network_test.i: benchmarks/network_test.cpp.i
+.PHONY : benchmarks/network_test.i
+
+# target to preprocess a source file
+benchmarks/network_test.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/network_test.dir/build.make CMakeFiles/network_test.dir/benchmarks/network_test.cpp.i
+.PHONY : benchmarks/network_test.cpp.i
+
+benchmarks/network_test.s: benchmarks/network_test.cpp.s
+.PHONY : benchmarks/network_test.s
+
+# target to generate assembly for a file
+benchmarks/network_test.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/network_test.dir/build.make CMakeFiles/network_test.dir/benchmarks/network_test.cpp.s
+.PHONY : benchmarks/network_test.cpp.s
+
 benchmarks/throughput_test.o: benchmarks/throughput_test.cpp.o
 .PHONY : benchmarks/throughput_test.o
 
@@ -200,6 +237,10 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... benchmark_store"
 	@echo "... kvserver"
+	@echo "... network_test"
+	@echo "... benchmarks/network_test.o"
+	@echo "... benchmarks/network_test.i"
+	@echo "... benchmarks/network_test.s"
 	@echo "... benchmarks/throughput_test.o"
 	@echo "... benchmarks/throughput_test.i"
 	@echo "... benchmarks/throughput_test.s"

@@ -49,4 +49,5 @@ set(CMAKE_MAKEFILE_PRODUCTS
 set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/kvserver.dir/DependInfo.cmake"
   "CMakeFiles/benchmark_store.dir/DependInfo.cmake"
+  "CMakeFiles/network_test.dir/DependInfo.cmake"
   )

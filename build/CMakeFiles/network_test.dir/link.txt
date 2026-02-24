@@ -1,0 +1,1 @@
+/usr/bin/c++  -O3 -march=native -Wall -Wextra CMakeFiles/network_test.dir/benchmarks/network_test.cpp.o -o network_test 
