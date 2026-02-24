@@ -6,6 +6,7 @@
 #include <cstring>
 #include "../include/storage/ShardedKVStore.hpp"
 #include "../include/server/ThreadPool.hpp"
+#include <sstream>
 
 constexpr int PORT = 8080;
 
@@ -14,11 +15,55 @@ void handle_client(int client_socket,ShardedKVStore& store)
 {
     char buffer[1024] = {0};
     
-    read(client_socket,buffer,1024);
+    ssize_t bytes_read = read(client_socket,buffer,sizeof(buffer) - 1);
 
-    std::string response = "+PONG\r\n";
+    if(bytes_read <= 0)
+    {
+        close(client_socket);
+        return;
+    }
+
+    std::string request(buffer);
+    std::istringstream iss(request);
+    std::string command,key,value;
+
+    iss >> command;
+    std::string response;
+
+    // Route to the appropriate ShardedKVStore method
+    if(command == "SET")
+    {
+        iss >> key >> value;
+        store.set(key,value);
+        response = "+OK\r\n"; // Simple string response
+    }
+    else if(command == "GET")
+    {
+        iss >> key;
+        auto result = store.get(key);
+        if(result)
+        {
+            // Bulk string response format: $<length>\r\n<data>\r\n
+            response = "$" + std::to_string(result -> length()) + "\r\n" + *result + "\r\n";
+        }
+        else
+        {
+            response = "$-1\r\n";
+        }
+    }
+    else if(command == "DEL")
+    {
+        iss >> key;
+        bool removed = store.remove(key);
+        // Integer response format: :<number>\r\n
+        response = ":" + std::to_string(removed) + "\r\n";
+    }
+    else
+    {
+        response = "-ERR unknown command\r\n";
+    }
+
     send(client_socket,response.c_str(),response.length(),0);
-
     close(client_socket);
 }
 
