@@ -20,3 +20,30 @@ cmake -B build
 
 # Compile the optimized executable
 cmake --build build
+
+```
+
+## Running the Server
+
+```bash
+# Start the server on default port 8080:
+./build/kvserver
+
+```
+
+You can interact with the server using standard TCP utilities like nc or via telnet using RESP-like text commands:
+
+```bash
+echo "SET mykey 123" | nc 127.0.0.1 8080
+echo "GET mykey" | nc 127.0.0.1 8080
+echo "DEL mykey" | nc 127.0.0.1 8080
+```
+
+## Performance Benchmarks
+The project includes custom benchmarking suites to measure raw storage throughput and network I/O efficiency.
+
+* **Storage Throughput:** Achieved ~2.58 Million Operations/Second executing highly concurrent reads and writes across 8 threads, demonstrating the efficiency of the lock-striping architecture.
+
+* **Network Throughput:** Achieved ~44,000 Requests/Second processing full TCP connection churn (connect, send, read, close) across concurrent clients.
+
+(Tested on local machine using the included benchmark_store and network_test executables compiled with -O3 and -march=native).
