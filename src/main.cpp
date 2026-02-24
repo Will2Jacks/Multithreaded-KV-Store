@@ -4,17 +4,27 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <cstring>
+#include <fcntl.h>
+#include <sys/epoll.h>
+#include <sstream>
 #include "../include/storage/ShardedKVStore.hpp"
 #include "../include/server/ThreadPool.hpp"
-#include <sstream>
 
 constexpr int PORT = 8080;
+constexpr int MAX_EVENTS = 1024;
+
+// Set sockets to non-blocking mode
+int set_nonblocking(int fd)
+{
+    int flags = fcntl(fd,F_GETFL,0);
+    if(flags == -1) return -1;
+    return fcntl(fd,F_SETFL,flags | O_NONBLOCK);
+}
 
 // For worker_thread
 void handle_client(int client_socket,ShardedKVStore& store)
 {
     char buffer[1024] = {0};
-    
     ssize_t bytes_read = read(client_socket,buffer,sizeof(buffer) - 1);
 
     if(bytes_read <= 0)
@@ -25,10 +35,9 @@ void handle_client(int client_socket,ShardedKVStore& store)
 
     std::string request(buffer);
     std::istringstream iss(request);
-    std::string command,key,value;
+    std::string command,key,value,response;
 
     iss >> command;
-    std::string response;
 
     // Route to the appropriate ShardedKVStore method
     if(command == "SET")
@@ -81,6 +90,7 @@ int main()
 
     int opt = 1;
     setsockopt(server_fd,SOL_SOCKET,SO_REUSEADDR | SO_REUSEPORT,&opt,sizeof(opt));
+    set_nonblocking(server_fd);
 
     struct sockaddr_in address;
     address.sin_family = AF_INET;
@@ -99,19 +109,56 @@ int main()
         return 1;
     }
 
-    std::cout << "KV Server listening on port " << PORT << "...\n";
+    int epoll_fd = epoll_create1(0);
+    if(epoll_fd == -1)
+    {
+        perror("epoll_create1 failed");
+        return 1;
+    }
+
+    struct epoll_event event;
+    event.data.fd = server_fd;
+    event.events = EPOLLIN;
+    epoll_ctl(epoll_fd,EPOLL_CTL_ADD,server_fd,&event);
+
+    struct epoll_event events[MAX_EVENTS];
+    std::cout << "High-Performance KV Server listening on port " << PORT << "...\n";
 
     while(true)
     {
-        int client_socket = accept(server_fd,nullptr,nullptr);
-        if(client_socket < 0)
-        {
-            continue;
-        }
+        int num_events = epoll_wait(epoll_fd,events,MAX_EVENTS,-1);
 
-        pool.enqueue([client_socket,&store]() {
-            handle_client(client_socket,store);
-        });
+        for(int i = 0;i < num_events;i++)
+        {
+            if(events[i].data.fd == server_fd)
+            {
+                struct sockaddr_in client_addr;
+                socklen_t client_len = sizeof(client_addr);
+                int client_socket = accept(server_fd,(struct sockaddr*)& client_addr,&client_len);
+
+                if(client_socket >= 0)
+                {
+                    set_nonblocking(client_socket);
+                    struct epoll_event client_event;
+                    client_event.data.fd = client_socket;
+
+                    // EPOLLONESHOT ensures a socket is only triggered once. 
+                    // This prevents multiple worker threads from grabbing the same incoming data simultaneously.
+
+                    client_event.events = EPOLLIN | EPOLLONESHOT;
+                    epoll_ctl(epoll_fd,EPOLL_CTL_ADD,client_socket,&client_event);
+                }
+            }
+            else
+            {
+                // An existing client has sent data (GET, SET, DEL)
+                int client_socket = events[i].data.fd;
+
+                pool.enqueue([client_socket,&store]() {
+                    handle_client(client_socket,store);
+                });
+            }
+        }
     }
 
     return 0;
