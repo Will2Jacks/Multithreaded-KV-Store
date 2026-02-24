@@ -18,3 +18,5 @@ add_executable(kvserver src/main.cpp)
 
 # Link the threading library to the executable
 target_link_libraries(kvserver Threads::Threads)
+add_executable(benchmark_store benchmarks/throughput_test.cpp)
+target_link_libraries(benchmark_store Threads::Threads)

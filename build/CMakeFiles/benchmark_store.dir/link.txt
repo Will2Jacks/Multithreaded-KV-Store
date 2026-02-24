@@ -1,0 +1,1 @@
+/usr/bin/c++  -O3 -march=native -Wall -Wextra CMakeFiles/benchmark_store.dir/benchmarks/throughput_test.cpp.o -o benchmark_store 

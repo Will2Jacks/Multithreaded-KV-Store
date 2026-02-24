@@ -64,6 +64,7 @@ CMAKE_BINARY_DIR = /home/bayern/kv-store/build
 
 # The main recursive "all" target.
 all: CMakeFiles/kvserver.dir/all
+all: CMakeFiles/benchmark_store.dir/all
 .PHONY : all
 
 # The main recursive "preinstall" target.
@@ -72,6 +73,7 @@ preinstall:
 
 # The main recursive "clean" target.
 clean: CMakeFiles/kvserver.dir/clean
+clean: CMakeFiles/benchmark_store.dir/clean
 .PHONY : clean
 
 #=============================================================================
@@ -81,7 +83,7 @@ clean: CMakeFiles/kvserver.dir/clean
 CMakeFiles/kvserver.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvserver.dir/build.make CMakeFiles/kvserver.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvserver.dir/build.make CMakeFiles/kvserver.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/bayern/kv-store/build/CMakeFiles --progress-num=1,2 "Built target kvserver"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/bayern/kv-store/build/CMakeFiles --progress-num=3,4 "Built target kvserver"
 .PHONY : CMakeFiles/kvserver.dir/all
 
 # Build rule for subdir invocation for target.
@@ -99,6 +101,32 @@ kvserver: CMakeFiles/kvserver.dir/rule
 CMakeFiles/kvserver.dir/clean:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/kvserver.dir/build.make CMakeFiles/kvserver.dir/clean
 .PHONY : CMakeFiles/kvserver.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/benchmark_store.dir
+
+# All Build rule for target.
+CMakeFiles/benchmark_store.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/benchmark_store.dir/build.make CMakeFiles/benchmark_store.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/benchmark_store.dir/build.make CMakeFiles/benchmark_store.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/bayern/kv-store/build/CMakeFiles --progress-num=1,2 "Built target benchmark_store"
+.PHONY : CMakeFiles/benchmark_store.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/benchmark_store.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/bayern/kv-store/build/CMakeFiles 2
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/benchmark_store.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/bayern/kv-store/build/CMakeFiles 0
+.PHONY : CMakeFiles/benchmark_store.dir/rule
+
+# Convenience name for target.
+benchmark_store: CMakeFiles/benchmark_store.dir/rule
+.PHONY : benchmark_store
+
+# clean rule for target.
+CMakeFiles/benchmark_store.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/benchmark_store.dir/build.make CMakeFiles/benchmark_store.dir/clean
+.PHONY : CMakeFiles/benchmark_store.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.
