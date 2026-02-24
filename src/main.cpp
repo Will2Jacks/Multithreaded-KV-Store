@@ -78,7 +78,7 @@ void handle_client(int client_socket,ShardedKVStore& store)
 
 int main()
 {
-    ShardedKVStore store(32);
+    ShardedKVStore store(1,2);
     ThreadPool pool(4);         // 4 background worker threads
 
     int server_fd = socket(AF_INET,SOCK_STREAM,0);
