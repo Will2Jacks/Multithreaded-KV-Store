@@ -46,4 +46,4 @@ The project includes custom benchmarking suites to measure raw storage throughpu
 
 * **Network Throughput:** Achieved ~44,000 Requests/Second processing full TCP connection churn (connect, send, read, close) across concurrent clients.
 
-(Tested on local machine using the included benchmark_store and network_test executables compiled with -O3 and -march=native).
+(Tested on local machine using the included `benchmark_store` and `network_test` executables compiled with `-O3` and `-march=native`).
