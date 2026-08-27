@@ -13,6 +13,7 @@ A highly concurrent, low-latency in-memory key-value store written from scratch 
 
 ## Project Directory Structure
 
+```text
 kv-store/
 ├── benchmarks/
 │   ├── network_test.cpp
