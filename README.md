@@ -40,6 +40,7 @@ kv-store/
 │   └── test_storage.cpp
 └── scripts/
     └── build.sh
+```
 
 ## Build Instructions
 
