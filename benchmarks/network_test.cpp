@@ -12,33 +12,34 @@ constexpr int PORT = 8080;
 constexpr int NUM_THREADS = 8;
 constexpr int REQS_PER_THREAD = 5000;
 
-void network_worker(int thread_id,std::atomic<int>& successful_reqs)
+void network_worker(int thread_id, std::atomic<int>& successful_reqs)
 {
     struct sockaddr_in serv_addr;
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT);
-    inet_pton(AF_INET,"127.0.0.1",&serv_addr.sin_addr);
+    inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
 
     std::string command = "GET test_key\r\n";
     char buffer[256];
 
-    for(int i = 0;i < REQS_PER_THREAD;i++)
-    {
-        int sock = socket(AF_INET,SOCK_STREAM,0);
-        if(sock < 0) continue;
+    // Open connection ONCE per thread
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) return;
 
-        if(connect(sock,(struct sockaddr*)& serv_addr,sizeof(serv_addr)) == 0)
+    if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == 0)
+    {
+        for (int i = 0; i < REQS_PER_THREAD; i++)
         {
-            if(send(sock,command.c_str(),command.length(),0) > 0)
+            if (send(sock, command.c_str(), command.length(), 0) > 0)
             {
-                if(read(sock,buffer,sizeof(buffer) - 1) > 0)
+                if (read(sock, buffer, sizeof(buffer) - 1) > 0)
                 {
                     successful_reqs++;
                 }
             }
         }
-        close(sock);
     }
+    close(sock); // Close once at the end
 }
 
 int main()

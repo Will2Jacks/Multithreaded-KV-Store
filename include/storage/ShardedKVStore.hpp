@@ -1,3 +1,5 @@
+#pragma once
+
 #include <string>
 #include <unordered_map>
 #include <shared_mutex>
@@ -6,14 +8,32 @@
 #include <vector>
 #include <functional>
 #include <list>
+#include <chrono>
+#include "../utils/SlabAllocator.hpp"
+
+using LRUList = std::list<std::string, SlabAllocator<std::string>>;
+
+struct CacheItem{
+    std::string value;
+    LRUList::iterator lru_it;
+    std::chrono::steady_clock::time_point expiry;
+};
+
+using CacheMap = std::unordered_map<
+    std::string, 
+    struct CacheItem, 
+    std::hash<std::string>, 
+    std::equal_to<std::string>, 
+    SlabAllocator<std::pair<const std::string, struct CacheItem>>
+>;
 
 // Individual bucket structure encapsulating a map and its specific lock
 struct LRUBucket {
     // The list tracks usage order: most recent at the front, oldest at the back
-    std::list <std::string> lru_list;
+    LRUList lru_list;
 
     // The map stores the value AND an iterator pointing directly to the key's position in the list
-    std::unordered_map <std::string,std::pair <std::string,std::list <std::string>::iterator>> store;
+    CacheMap store;
     
     mutable std::shared_mutex rw_mutex;
     size_t max_capacity;    // Max capacity of the bucket
@@ -40,19 +60,24 @@ class ShardedKVStore {
         }
 
         // Exclusive access to lock
-        void set(const std::string& key,const std::string& value)
+        void set(const std::string& key,const std::string& value,int ttl_seconds = -1)
         {
             size_t idx = get_bucket_index(key);
             std::unique_lock <std::shared_mutex> lock(buckets[idx].rw_mutex);
+
+            auto expiry_time = (ttl_seconds > 0) ? 
+                std::chrono::steady_clock::now() + std::chrono::seconds(ttl_seconds) : 
+                std::chrono::steady_clock::time_point::max();
             
             auto it = buckets[idx].store.find(key);
             if(it != buckets[idx].store.end())
             {
                 // Key exists: Update value and move it to the front of the LRU list
-                it -> second.first = value;
-                buckets[idx].lru_list.erase(it -> second.second);
+                it -> second.value = value;
+                it -> second.expiry = expiry_time;
+                buckets[idx].lru_list.erase(it -> second.lru_it);
                 buckets[idx].lru_list.push_front(key);
-                it -> second.second = buckets[idx].lru_list.begin();
+                it -> second.lru_it = buckets[idx].lru_list.begin();
             }
             else
             {
@@ -67,7 +92,7 @@ class ShardedKVStore {
 
                 // Insert new key at the front
                 buckets[idx].lru_list.push_front(key);
-                buckets[idx].store[key] = {value,buckets[idx].lru_list.begin()};
+                buckets[idx].store[key] = {value,buckets[idx].lru_list.begin(),expiry_time};
             }
         }
 
@@ -80,12 +105,18 @@ class ShardedKVStore {
             auto it = buckets[idx].store.find(key);
             if(it != buckets[idx].store.end())
             {
-                // Move the accessed key to the front (marking it as recently used)
-                buckets[idx].lru_list.erase(it -> second.second);
-                buckets[idx].lru_list.push_front(key);
-                it -> second.second = buckets[idx].lru_list.begin();
+                if (std::chrono::steady_clock::now() > it->second.expiry) {
+                    buckets[idx].lru_list.erase(it->second.lru_it);
+                    buckets[idx].store.erase(it);
+                    return std::nullopt;
+                }
 
-                return it -> second.first;
+                // Move the accessed key to the front (marking it as recently used)
+                buckets[idx].lru_list.erase(it -> second.lru_it);
+                buckets[idx].lru_list.push_front(key);
+                it -> second.lru_it = buckets[idx].lru_list.begin();
+
+                return it -> second.value;
             }
             return std::nullopt;
         }
@@ -100,10 +131,32 @@ class ShardedKVStore {
             if(it != buckets[idx].store.end())
             {
                 // Remove from both the list and the map
-                buckets[idx].lru_list.erase(it -> second.second);
+                buckets[idx].lru_list.erase(it -> second.lru_it);
                 buckets[idx].store.erase(it);
                 return true;
             }
             return false;
+        }
+
+        // Background task to actively sweep and delete all expired keys across all shards
+        void clean_expired_keys()
+        {
+            auto now = std::chrono::steady_clock::now();
+            for(size_t i = 0; i < num_shards; i++) 
+            {
+                std::unique_lock<std::shared_mutex> lock(buckets[i].rw_mutex);
+                for(auto it = buckets[i].store.begin(); it != buckets[i].store.end(); ) 
+                {
+                    if(now > it->second.expiry) 
+                    {
+                        buckets[i].lru_list.erase(it->second.lru_it);
+                        it = buckets[i].store.erase(it);
+                    } 
+                    else 
+                    {
+                        ++it;
+                    }
+                }
+            }
         }
 };
