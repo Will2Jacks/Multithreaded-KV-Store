@@ -10,12 +10,16 @@ constexpr int OPS_PER_THREAD = 100000;
 
 void benchmark_worker(ShardedKVStore& store,int thread_id,std::atomic<int>& total_ops)
 {
+    std::vector<std::string> keys(OPS_PER_THREAD);
     for(int i = 0;i < OPS_PER_THREAD;i++)
     {
-        std::string key = "key_" + std::to_string(thread_id) + "_" + std::to_string(i);
+        keys[i] = "key_" + std::to_string(thread_id) + "_" + std::to_string(i);
+    }
 
-        store.set(key,"benchmark_value");
-        store.get(key);
+    for(int i = 0;i < OPS_PER_THREAD;i++)
+    {
+        store.set(keys[i], "benchmark_value");
+        store.get(keys[i]);
     }
     total_ops += (OPS_PER_THREAD) * 2;
 }

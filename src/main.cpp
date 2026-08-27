@@ -4,82 +4,21 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <cstring>
-#include <fcntl.h>
 #include <sys/epoll.h>
-#include <sstream>
+#include <sys/timerfd.h>
 #include "../include/storage/ShardedKVStore.hpp"
 #include "../include/server/ThreadPool.hpp"
+#include "../include/network/SocketUtils.hpp"
+#include "../include/network/ClientContext.hpp"
+#include "../include/server/ClientHandler.hpp"
 
 constexpr int PORT = 8080;
 constexpr int MAX_EVENTS = 1024;
 
-// Set sockets to non-blocking mode
-int set_nonblocking(int fd)
-{
-    int flags = fcntl(fd,F_GETFL,0);
-    if(flags == -1) return -1;
-    return fcntl(fd,F_SETFL,flags | O_NONBLOCK);
-}
-
-// For worker_thread
-void handle_client(int client_socket,ShardedKVStore& store)
-{
-    char buffer[1024] = {0};
-    ssize_t bytes_read = read(client_socket,buffer,sizeof(buffer) - 1);
-
-    if(bytes_read <= 0)
-    {
-        close(client_socket);
-        return;
-    }
-
-    std::string request(buffer);
-    std::istringstream iss(request);
-    std::string command,key,value,response;
-
-    iss >> command;
-
-    // Route to the appropriate ShardedKVStore method
-    if(command == "SET")
-    {
-        iss >> key >> value;
-        store.set(key,value);
-        response = "+OK\r\n"; // Simple string response
-    }
-    else if(command == "GET")
-    {
-        iss >> key;
-        auto result = store.get(key);
-        if(result)
-        {
-            // Bulk string response format: $<length>\r\n<data>\r\n
-            response = "$" + std::to_string(result -> length()) + "\r\n" + *result + "\r\n";
-        }
-        else
-        {
-            response = "$-1\r\n";
-        }
-    }
-    else if(command == "DEL")
-    {
-        iss >> key;
-        bool removed = store.remove(key);
-        // Integer response format: :<number>\r\n
-        response = ":" + std::to_string(removed) + "\r\n";
-    }
-    else
-    {
-        response = "-ERR unknown command\r\n";
-    }
-
-    send(client_socket,response.c_str(),response.length(),0);
-    close(client_socket);
-}
-
 int main()
 {
     ShardedKVStore store(32);
-    ThreadPool pool(4);         // 4 background worker threads
+    ThreadPool pool(4);
 
     int server_fd = socket(AF_INET,SOCK_STREAM,0);
     if(server_fd <= 0)
@@ -124,6 +63,25 @@ int main()
     struct epoll_event events[MAX_EVENTS];
     std::cout << "High-Performance KV Server listening on port " << PORT << "...\n";
 
+    int timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+    if(timer_fd == -1) 
+    {
+        perror("timerfd_create failed");
+        return 1;
+    }
+
+    struct itimerspec ts;
+    ts.it_value.tv_sec = 5;
+    ts.it_value.tv_nsec = 0;
+    ts.it_interval.tv_sec = 5;
+    ts.it_interval.tv_nsec = 0;
+    timerfd_settime(timer_fd, 0, &ts, nullptr);
+
+    struct epoll_event timer_event;
+    timer_event.data.fd = timer_fd;
+    timer_event.events = EPOLLIN;
+    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, timer_fd, &timer_event);
+
     while(true)
     {
         int num_events = epoll_wait(epoll_fd,events,MAX_EVENTS,-1);
@@ -139,23 +97,34 @@ int main()
                 if(client_socket >= 0)
                 {
                     set_nonblocking(client_socket);
+
+                    {
+                        std::lock_guard <std::mutex> lock(contexts_mutex);
+                        client_contexts[client_socket] = ClientContext();
+                    }
+
                     struct epoll_event client_event;
                     client_event.data.fd = client_socket;
-
-                    // EPOLLONESHOT ensures a socket is only triggered once. 
-                    // This prevents multiple worker threads from grabbing the same incoming data simultaneously.
-
                     client_event.events = EPOLLIN | EPOLLONESHOT;
                     epoll_ctl(epoll_fd,EPOLL_CTL_ADD,client_socket,&client_event);
                 }
             }
+            else if(events[i].data.fd == timer_fd)
+            {
+                uint64_t expirations;
+                ssize_t s = read(timer_fd, &expirations, sizeof(expirations));
+                if (s != sizeof(expirations)) continue;
+
+                pool.enqueue([&store](){
+                    store.clean_expired_keys();
+                });
+            }
             else
             {
-                // An existing client has sent data (GET, SET, DEL)
                 int client_socket = events[i].data.fd;
-
-                pool.enqueue([client_socket,&store]() {
-                    handle_client(client_socket,store);
+                uint32_t triggered_events = events[i].events;
+                pool.enqueue([client_socket,&store,epoll_fd,triggered_events]() {
+                    handle_client(client_socket,store,epoll_fd,triggered_events);
                 });
             }
         }
