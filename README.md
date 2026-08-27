@@ -46,30 +46,40 @@ kv-store/
 
 To compile the optimized server executable manually, run:
 
+```text
 g++ -std=c++17 -O3 src/main.cpp src/server/ClientHandler.cpp src/network/SocketUtils.cpp -pthread -o kv_server
+```
 
 ## Running the Server
 
 To start the server on default port 8080, run:
 
+```text
 ./kv_server
+```
 
 You can interact with the server using standard TCP utilities like nc or telnet via custom text commands:
 
+```text
 echo "SET mykey 123" | nc 127.0.0.1 8080
 echo "GET mykey" | nc 127.0.0.1 8080
 echo "SETEX temp_key 5 secret_val" | nc 127.0.0.1 8080
 echo "DEL mykey" | nc 127.0.0.1 8080
+```
 
 ## Testing Suite
 
 To compile and execute the unit and integration tests:
 
 Storage Layer & Custom Allocator Tests:
+```text
 g++ -std=c++17 tests/test_storage.cpp -pthread -o test_storage && ./test_storage
+```
 
 Network Layer Tests:
+```text
 g++ -std=c++17 tests/test_network.cpp src/network/SocketUtils.cpp -o test_network && ./test_network
+```
 
 ## Performance Benchmarks
 
