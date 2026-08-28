@@ -6,6 +6,8 @@
 #include <cstring>
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
+#include <csignal>
+#include <atomic>
 #include "../include/storage/ShardedKVStore.hpp"
 #include "../include/server/ThreadPool.hpp"
 #include "../include/network/SocketUtils.hpp"
@@ -15,8 +17,19 @@
 constexpr int PORT = 8080;
 constexpr int MAX_EVENTS = 1024;
 
+std::atomic<bool> server_running{true};
+
+void signal_handler(int signum)
+{
+    std::cout << "\nInterrupt signal (" << signum << ") received. Initiating graceful shutdown...\n";
+    server_running = false;
+}
+
 int main()
 {
+    signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
+
     ShardedKVStore store(32);
     ThreadPool pool(4);
 
@@ -82,9 +95,11 @@ int main()
     timer_event.events = EPOLLIN;
     epoll_ctl(epoll_fd, EPOLL_CTL_ADD, timer_fd, &timer_event);
 
-    while(true)
+    while(server_running)
     {
         int num_events = epoll_wait(epoll_fd,events,MAX_EVENTS,-1);
+
+        if(num_events == -1 && errno == EINTR) continue;
 
         for(int i = 0;i < num_events;i++)
         {
@@ -130,5 +145,9 @@ int main()
         }
     }
 
+    std::cout << "Server shutting down cleanly.\n";
+    close(server_fd);
+    close(epoll_fd);
+    close(timer_fd);
     return 0;
 }
