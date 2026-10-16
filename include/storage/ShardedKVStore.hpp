@@ -21,10 +21,10 @@ struct CacheItem{
 
 using CacheMap = std::unordered_map<
     std::string, 
-    struct CacheItem, 
+    CacheItem, 
     std::hash<std::string>, 
     std::equal_to<std::string>, 
-    SlabAllocator<std::pair<const std::string, struct CacheItem>>
+    SlabAllocator<std::pair<const std::string, CacheItem>>
 >;
 
 // Individual bucket structure encapsulating a map and its specific lock
@@ -49,6 +49,7 @@ class ShardedKVStore {
         {
             return std::hash<std::string>{}(key) % num_shards;
         }
+        // std::hash<std::string> is a template functor, whose default ctor we call(note the {}), and then call the functor's operator(), by passing in our 'key' as a param
     
     public:
         explicit ShardedKVStore(size_t shards = 32,size_t capacity_per_shard = 1000): num_shards(shards),buckets(shards)
@@ -79,6 +80,7 @@ class ShardedKVStore {
                 buckets[idx].lru_list.push_front(key);
                 it -> second.lru_it = buckets[idx].lru_list.begin();
             }
+            // Not really optimal. erase() + push_front() deallocates, then allocates again, which creates two round-trips to the memory-pool, and each round-trip involves locking and unlocking the mutex (mtx)
             else
             {
                 // New key: Check if we are at capacity first
@@ -93,6 +95,8 @@ class ShardedKVStore {
                 // Insert new key at the front
                 buckets[idx].lru_list.push_front(key);
                 buckets[idx].store[key] = {value,buckets[idx].lru_list.begin(),expiry_time};
+
+                // Again not really optimal: first the cache-item for the new key is default-constructed, and then copy assigned to our RHS. A better way would be to use try_emplace
             }
         }
 
@@ -160,3 +164,15 @@ class ShardedKVStore {
             }
         }
 };
+
+/*
+The standard container API requires you to write SlabAllocator<T> where T is the element type, but the container never allocates bare T instances. It immediately rebinds the allocator to its internal node structs (_List_node and _Hash_node), so your SlabAllocator only ever allocates and frees complete nodes containing the pointers, hashes, and payload data packed together.
+*/
+
+/*
+Possible Improvements:
+
+1. Per-shard SlabManager: Eliminates global allocator lock contention across concurrent worker threads.
+2. store.reserve(max_capacity): Pre-sizes the hash table to prevent rehashing and OS heap fallbacks.
+3. store.try_emplace(): Constructs CacheItem directly in-place, eliminating redundant temporary object creation.
+*/

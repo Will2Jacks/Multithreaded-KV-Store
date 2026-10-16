@@ -24,15 +24,15 @@ void network_worker(int thread_id, std::atomic<int>& successful_reqs)
 
     // Open connection ONCE per thread
     int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) return;
+    if(sock < 0) return;
 
-    if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == 0)
+    if(connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == 0)
     {
-        for (int i = 0; i < REQS_PER_THREAD; i++)
+        for(int i = 0; i < REQS_PER_THREAD; i++)
         {
-            if (send(sock, command.c_str(), command.length(), 0) > 0)
+            if(send(sock, command.c_str(), command.length(), 0) > 0)
             {
-                if (read(sock, buffer, sizeof(buffer) - 1) > 0)
+                if(read(sock, buffer, sizeof(buffer) - 1) > 0)
                 {
                     successful_reqs++;
                 }

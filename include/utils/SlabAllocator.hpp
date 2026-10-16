@@ -35,7 +35,7 @@ class SlabManager {
 
     public:
         // Singleton pattern ensures all shards share the exact same 1GB pool
-        static SlabManager& get_instance() 
+        static SlabManager& get_instance()   // Meyer's Singleton - thread safe 
         {
             static SlabManager instance;
             return instance;
@@ -74,6 +74,7 @@ struct SlabAllocator {
 
     SlabAllocator() noexcept {}
     template <typename U> SlabAllocator(const SlabAllocator<U>&) noexcept {}
+    // needed for constructing instances of list_nodes of the list, from instances of strings
 
     T* allocate(std::size_t n) 
     {
@@ -89,3 +90,9 @@ struct SlabAllocator {
     bool operator==(const SlabAllocator&) const noexcept { return true; }
     bool operator!=(const SlabAllocator&) const noexcept { return false; }
 };
+
+/*
+When operator== returns true (The O(1) Path):listA steals the pointers, leaving listB empty (size = 0, head/tail set to nullptr or sentinels). When listB goes out of scope, its destructor runs an empty loop (0 nodes to visit), so its deallocation is an instant no-op.
+
+When operator== returns false (The Fallback Path):Because allocA cannot deallocate allocB's memory, listA is forced to allocate new nodes using allocA and copy/move the values across. When each list later destructs, listA deallocates its newly created nodes using allocA, and listB deallocates its original nodes using allocB.
+*/

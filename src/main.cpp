@@ -23,6 +23,8 @@ void signal_handler(int signum)
 {
     std::cout << "\nInterrupt signal (" << signum << ") received. Initiating graceful shutdown...\n";
     server_running = false;
+
+    // std::cout is not async-signal-safe, and can create deadlocks. 
 }
 
 int main()
@@ -89,6 +91,7 @@ int main()
     ts.it_interval.tv_sec = 5;
     ts.it_interval.tv_nsec = 0;
     timerfd_settime(timer_fd, 0, &ts, nullptr);
+    // 0 in 2nd param, means relative to now, nullptr in 4th param asks to discard old timer spec
 
     struct epoll_event timer_event;
     timer_event.data.fd = timer_fd;
@@ -100,6 +103,7 @@ int main()
         int num_events = epoll_wait(epoll_fd,events,MAX_EVENTS,-1);
 
         if(num_events == -1 && errno == EINTR) continue;
+        // signal received, which caused the server to wake up. If signal was SIGINT or SIGTERM, our signal handler runs, setting server_running = false, else we start waiting again
 
         for(int i = 0;i < num_events;i++)
         {
@@ -129,6 +133,8 @@ int main()
                 uint64_t expirations;
                 ssize_t s = read(timer_fd, &expirations, sizeof(expirations));
                 if (s != sizeof(expirations)) continue;
+                // expirations stores the number of times, the timer expired since the last successful read
+                // If read is successful, it returns 8, which matches with sizeof(expirations)
 
                 pool.enqueue([&store](){
                     store.clean_expired_keys();
